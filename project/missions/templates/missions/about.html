@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}User guide - TETHER Mission Control{% endblock %}
+{# Static user guide: what the app is, how to use it, and how the PostGIS metrics are defined. #}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-9 col-xl-8">
+    <h1 class="h3">User guide</h1>
+    <p class="lead">TETHER Mission Control shows how simulated rescue rovers behave in a disaster, on a real map.</p>
+
+    <h2 class="h5 mt-4">The idea</h2>
+    <p>A rover starts at a <strong>base</strong>, must find a <strong>target</strong> and return before its battery runs out.
+       Obstacles block it, hazards drain the battery faster and the base's radio only reaches so far.
+       Each scenario is a grid placed on a real location, and every agent's route is stored as geometry in PostGIS.</p>
+
+    <h2 class="h5 mt-4">Browsing</h2>
+    <ol>
+      <li>On the <a href="{% url 'dashboard' %}">scenarios page</a>, pick a scenario from the list or the map.</li>
+      <li>Press <strong>Play</strong> to replay the rover's route, or drag the slider.</li>
+      <li><strong>Click the map</strong> to see the three nearest hazards or obstacles.</li>
+      <li>Read the results table: success, path length, time spent in hazards, radio coverage and the "point of no return".</li>
+    </ol>
+
+    <h2 class="h5 mt-4">Finding scenarios by place</h2>
+    <p>Click the dashboard map to pick a point, set a radius and press <strong>Near picked point</strong> to list scenarios within that distance.</p>
+
+    <h2 class="h5 mt-4">Signed-in users</h2>
+    <ul>
+      <li><strong>New scenario</strong>: choose a type, a location, a seed and a battery. The same seed always generates the same map.</li>
+      <li><strong>Edit</strong> the name and description, <strong>Re-run route</strong> and <strong>Delete</strong> on your own scenarios.</li>
+    </ul>
+
+    <h2 class="h5 mt-4">The rover</h2>
+    <dl class="row">
+      <dt class="col-sm-3">A*</dt><dd class="col-sm-9">Plans the cheapest route with full knowledge of the map.</dd>
+    </dl>
+    <p class="small text-secondary">Scenarios are simulations. Grids are a visual overlay on OpenStreetMap, not real hazard data.</p>
+  </div>
+</div>
+{% endblock %}

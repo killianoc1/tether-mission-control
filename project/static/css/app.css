@@ -1,0 +1,56 @@
+/* TETHER Mission Control - small layer on top of Bootstrap 5 */
+:root {
+  --nav-bg: #0b1f33;
+  --accent: #0072b2;       /* Okabe-Ito blue: also the A* colour, readable for colour-blind users */
+  --hazard: #d55e00;
+  --obstacle: #3d4752;
+  --coverage: #009e73;
+}
+
+body { background: #f4f6f8; }
+.skip-link:focus { position: fixed; top: .5rem; left: .5rem; z-index: 2000; background: #fff; padding: .5rem .75rem; border-radius: .25rem; }
+.app-nav { background: var(--nav-bg); }
+.brand-mark { color: #56b4e9; }
+main:focus { outline: none; }
+:focus-visible { outline: 3px solid #f0a000; outline-offset: 2px; }
+
+.card { border-color: #dde3ea; }
+
+/* Maps: taller on desktop, still usable on a phone */
+.map { width: 100%; height: 58vh; min-height: 340px; border-radius: .5rem; border: 1px solid #c9d2dc; background: #dfe7ee; }
+.map-lg { height: 66vh; min-height: 380px; }
+@media (max-width: 575.98px) { .map, .map-lg { height: 52vh; } }
+
+/* Scenario list */
+.scenario-item { cursor: pointer; }
+.scenario-item:hover, .scenario-item:focus-within { background: #eef4fa; }
+.type-badge { font-weight: 600; letter-spacing: .01em; }
+.type-earthquake { background: #6c4f9c; }
+.type-wildfire { background: var(--hazard); }
+.type-flood { background: var(--accent); }
+.type-industrial { background: #8a6d00; }
+
+/* Map markers (divIcons) */
+.pin { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: #fff;
+       font: 700 13px/1 system-ui, sans-serif; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+.pin-base { background: #0b1f33; border-radius: 6px; }
+.pin-target { background: #c0392b; }
+.pin-warn { background: #fff; color: #b00020; border: 2px solid #b00020; }
+.pin-agent { width: 24px; height: 24px; font-size: 12px; }
+
+/* Legend swatches */
+.swatch { display: inline-block; width: 34px; height: 0; border-top-width: 4px; border-top-style: solid; vertical-align: middle; margin-right: .5rem; }
+.swatch-box { display: inline-block; width: 16px; height: 16px; vertical-align: middle; margin-right: .5rem; border-radius: 3px; }
+.swatch-obstacle { background: var(--obstacle); }
+.swatch-hazard { background: rgba(213,94,0,.45); border: 2px dashed var(--hazard); }
+.swatch-coverage { background: rgba(0,158,115,.15); border: 2px solid var(--coverage); }
+
+/* Metrics table */
+.metrics-table th, .metrics-table td { white-space: nowrap; vertical-align: middle; }
+.outcome-ok { color: #0a6b46; font-weight: 600; }
+.outcome-bad { color: #a4243b; font-weight: 600; }
+
+.leaflet-container { font: inherit; }
+.leaflet-tooltip.agent-tip { font-size: .8rem; }
+
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }

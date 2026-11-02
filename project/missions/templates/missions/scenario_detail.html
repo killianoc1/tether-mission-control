@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ scenario.name }} - TETHER Mission Control{% endblock %}
+
+{% comment %} Mission page: Leaflet map, replay controls, agent and layer panels, and the results table.
+   Everything dynamic is loaded by static/js/mission.js from the REST API.  data-can-edit is set
+   only for the owner or staff, which decides whether the Edit / Re-run / Delete buttons are shown.
+{% endcomment %}
+{% block content %}
+<div id="mission" data-scenario-id="{{ scenario.id }}"
+     data-can-edit="{% if user.is_authenticated and user.is_staff or user.is_authenticated and scenario.owner_id == user.id %}1{% endif %}"
+     data-signed-in="{% if user.is_authenticated %}1{% endif %}">
+
+  <nav aria-label="Breadcrumb"><a href="{% url 'dashboard' %}" class="small">&larr; All scenarios</a></nav>
+  <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 my-2">
+    <div>
+      <h1 class="h3 mb-1">{{ scenario.name }}</h1>
+      <div class="text-secondary small">
+        <span class="badge type-badge type-{{ scenario.scenario_type }}">{{ scenario.get_scenario_type_display }}</span>
+        seed {{ scenario.seed }} &middot; {{ scenario.grid_size }}&times;{{ scenario.grid_size }} grid &middot;
+        {{ scenario.cell_size_m|floatformat:"-1" }} m cells &middot; battery {{ scenario.initial_battery|floatformat:"-1" }}
+      </div>
+      {% if scenario.description %}<p class="mt-2 mb-0">{{ scenario.description }}</p>{% endif %}
+    </div>
+    <div class="d-flex gap-2">
+      <button id="edit-btn" class="btn btn-sm btn-outline-secondary d-none" type="button"
+              data-name="{{ scenario.name }}" data-description="{{ scenario.description }}">Edit</button>
+      <button id="rerun-btn" class="btn btn-sm btn-outline-primary d-none" type="button">Re-run route</button>
+      <button id="delete-btn" class="btn btn-sm btn-outline-danger d-none" type="button">Delete</button>
+    </div>
+  </div>
+
+  <div id="page-error" class="alert alert-danger d-none" role="alert"></div>
+
+  <div class="row g-3">
+    <div class="col-12 col-lg-8">
+      <div id="map" class="map map-lg" role="application"
+           aria-label="Mission map. Click anywhere to find the nearest hazards. A table of results is below the map."></div>
+      <div class="card mt-2">
+        <div class="card-body py-2">
+          <div class="d-flex align-items-center gap-2">
+            <button id="play-btn" class="btn btn-sm btn-primary" type="button" aria-pressed="false">Play</button>
+            <label for="step-slider" class="visually-hidden">Replay step</label>
+            <input id="step-slider" type="range" class="form-range flex-grow-1" min="0" max="0" value="0" step="1">
+            <span id="step-label" class="small text-nowrap" style="min-width:5.5rem">Step 0</span>
+          </div>
+          <div id="step-status" class="small text-secondary mt-1" role="status"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-4">
+      <div class="card mb-3">
+        <div class="card-body">
+          <h2 class="h6">Rover</h2>
+          <p class="small text-secondary">The line is the rover's route on this seeded map. Press Play or drag the slider to replay it.</p>
+          <ul id="agent-list" class="list-unstyled mb-0"></ul>
+        </div>
+      </div>
+      <div class="card mb-3">
+        <div class="card-body">
+          <h2 class="h6">Legend</h2>
+          <div class="mb-1"><span class="swatch-box" style="border:2px solid #0b1f33"></span>Grid extent</div>
+          <div class="mb-1"><span class="swatch-box swatch-obstacle"></span>Obstacles (impassable)</div>
+          <div class="mb-1"><span class="swatch-box swatch-hazard"></span>Hazards (1.5&times; battery cost)</div>
+          <div class="mb-1"><span class="swatch-box swatch-coverage"></span>Communication coverage</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body small">
+          <h2 class="h6">Reading the map</h2>
+          <ul class="mb-0 ps-3">
+            <li><strong>B</strong> is the base, <strong>T</strong> is the target.</li>
+            <li>The rover must reach <strong>T</strong> and get back to <strong>B</strong> before the battery hits zero.</li>
+            <li><strong>Click the map</strong> to find the nearest hazards or obstacles.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Table body is filled by mission.js with the results of the PostGIS queries Q2, Q3 and Q4. #}
+  <h2 class="h5 mt-4">Spatial results <span class="small text-secondary fw-normal">(computed in PostGIS)</span></h2>
+  <div class="table-responsive card">
+    <table class="table table-sm table-hover align-middle mb-0 metrics-table">
+      <caption class="visually-hidden">Per-agent results for this scenario</caption>
+      <thead class="table-light">
+        <tr>
+          <th scope="col">Agent</th><th scope="col">Outcome</th><th scope="col" class="text-end">Steps</th>
+          <th scope="col" class="text-end">Battery left</th><th scope="col" class="text-end">Path length (m)</th>
+          <th scope="col" class="text-end">Hazard exposure (m)</th><th scope="col" class="text-end">Comm uptime</th>
+          <th scope="col" class="text-end">Point of no return</th>
+        </tr>
+      </thead>
+      <tbody id="metrics-body"><tr><td colspan="8" class="text-secondary">Loading...</td></tr></tbody>
+    </table>
+  </div>
+  <p class="small text-secondary mt-2">
+    <strong>Hazard exposure</strong>: length of the route inside hazard polygons (<code>ST_Intersection</code>).
+    <strong>Comm uptime</strong>: share of steps within the radio range of the base (<code>ST_DWithin</code>).
+    <strong>Point of no return</strong>: first step where the remaining battery could no longer cover the trip home at hazard cost (<code>ST_Buffer</code>).
+  </p>
+</div>
+
+{% if user.is_authenticated and user.is_staff or user.is_authenticated and scenario.owner_id == user.id %}
+<!-- Edit mode: only the descriptive fields can change (the PATCH endpoint enforces this too). -->
+<div class="modal fade" id="editScenarioModal" tabindex="-1" aria-labelledby="editScenarioTitle" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" id="edit-scenario-form" novalidate>
+      <div class="modal-header">
+        <h2 class="modal-title h5" id="editScenarioTitle">Edit scenario</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="edit-error" class="alert alert-danger d-none" role="alert"></div>
+        <div class="mb-3">
+          <label for="e-name" class="form-label">Name</label>
+          <input id="e-name" name="name" class="form-control" maxlength="120" required>
+        </div>
+        <div class="mb-3">
+          <label for="e-desc" class="form-label">Description <span class="text-secondary">(optional)</span></label>
+          <textarea id="e-desc" name="description" class="form-control" rows="3" maxlength="2000"></textarea>
+        </div>
+        <p class="form-text mb-0">
+          Location, disaster type, seed and grid settings are fixed because the map is generated from the seed.
+          Create a new scenario to change them.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="edit-save-btn">Save changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}<script src="{% static 'js/mission.js' %}"></script>{% endblock %}

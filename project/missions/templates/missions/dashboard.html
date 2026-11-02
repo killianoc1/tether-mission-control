@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Scenarios - TETHER Mission Control{% endblock %}
+
+{% comment %} Dashboard: a map of every scenario's base station, a filter / proximity-search card and the
+   scenario list.  The page ships empty; static/js/dashboard.js fills it from /api/scenarios/.
+   The "New scenario" modal further down is rendered only for signed-in users.
+{% endcomment %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-1">Disaster-response scenarios</h1>
+    <p class="text-secondary mb-0">Georeferenced rover scenarios. Pick one to replay the rover's route.</p>
+  </div>
+  {% if user.is_authenticated %}
+    <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#newScenarioModal">New scenario</button>
+  {% else %}
+    <a class="btn btn-outline-primary" href="{% url 'login' %}?next={{ request.path|urlencode }}">Sign in to create scenarios</a>
+  {% endif %}
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-lg-7">
+    <div id="map" class="map" role="application" aria-label="Map of scenario base stations. Use the list for keyboard access."></div>
+    <p class="small text-secondary mt-2 mb-0">
+      Click the map to choose a location for a new scenario or a search centre. Markers: E earthquake, W wildfire, F flood, I industrial.
+    </p>
+  </div>
+
+  <div class="col-12 col-lg-5">
+    <div class="card mb-3">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Find scenarios</h2>
+        <div class="row g-2">
+          <div class="col-6">
+            <label for="filter-type" class="form-label small mb-1">Type</label>
+            <select id="filter-type" class="form-select form-select-sm">
+              <option value="">All types</option>
+              {% for value, label in scenario_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-6">
+            <label for="filter-q" class="form-label small mb-1">Name contains</label>
+            <input id="filter-q" type="search" class="form-control form-control-sm" placeholder="e.g. flood">
+          </div>
+          <div class="col-6">
+            <label for="near-radius" class="form-label small mb-1">Radius (km)</label>
+            <input id="near-radius" type="number" class="form-control form-control-sm" value="25" min="1" max="500">
+          </div>
+          <div class="col-6 d-flex align-items-end gap-1">
+            <button id="near-btn" class="btn btn-sm btn-outline-primary flex-fill" type="button">Near picked point</button>
+            <button id="near-clear" class="btn btn-sm btn-outline-secondary" type="button" aria-label="Clear proximity search">Clear</button>
+          </div>
+        </div>
+        <p id="picked" class="small text-secondary mt-2 mb-0">No point picked yet.</p>
+      </div>
+    </div>
+
+    <h2 class="h6 visually-hidden">Scenario list</h2>
+    <p id="list-status" class="small text-secondary" role="status">Loading scenarios...</p>
+    <ul id="scenario-list" class="list-group shadow-sm"></ul>
+  </div>
+</div>
+
+{% if user.is_authenticated %}
+<div class="modal fade" id="newScenarioModal" tabindex="-1" aria-labelledby="newScenarioTitle" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <form class="modal-content" id="new-scenario-form" novalidate>
+      <div class="modal-header">
+        <h2 class="modal-title h5" id="newScenarioTitle">New scenario</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="form-error" class="alert alert-danger d-none" role="alert"></div>
+        <div class="row g-3">
+          <div class="col-12 col-md-8">
+            <label for="f-name" class="form-label">Name</label>
+            <input id="f-name" name="name" class="form-control" maxlength="120" required>
+          </div>
+          <div class="col-12 col-md-4">
+            <label for="f-type" class="form-label">Disaster type</label>
+            <select id="f-type" name="scenario_type" class="form-select">
+              {% for value, label in scenario_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-12">
+            <label for="f-desc" class="form-label">Description <span class="text-secondary">(optional)</span></label>
+            <textarea id="f-desc" name="description" class="form-control" rows="2" maxlength="2000"></textarea>
+          </div>
+          <div class="col-6 col-md-3">
+            <label for="f-lat" class="form-label">Base latitude</label>
+            <input id="f-lat" name="lat" type="number" step="any" min="-85" max="85" class="form-control" required>
+          </div>
+          <div class="col-6 col-md-3">
+            <label for="f-lng" class="form-label">Base longitude</label>
+            <input id="f-lng" name="lng" type="number" step="any" min="-180" max="180" class="form-control" required>
+          </div>
+          <div class="col-12 col-md-6 d-flex align-items-end">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="use-picked">Use the point picked on the map</button>
+          </div>
+          <div class="col-6 col-md-3">
+            <label for="f-seed" class="form-label">Seed</label>
+            <input id="f-seed" name="seed" type="number" min="0" class="form-control" placeholder="random">
+            <div class="form-text">Same seed = same map.</div>
+          </div>
+          <div class="col-6 col-md-3">
+            <label for="f-battery" class="form-label">Battery</label>
+            <input id="f-battery" name="initial_battery" type="number" min="20" max="1000" value="120" class="form-control">
+          </div>
+          <div class="col-6 col-md-3">
+            <label for="f-cell" class="form-label">Cell size (m)</label>
+            <input id="f-cell" name="cell_size_m" type="number" min="5" max="200" value="25" class="form-control">
+          </div>
+          <div class="col-6 col-md-3">
+            <label for="f-comm" class="form-label">Comm radius (cells)</label>
+            <input id="f-comm" name="comm_radius_cells" type="number" min="1" max="60" value="8" class="form-control">
+          </div>
+          <div class="col-12">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="f-run" checked>
+              <label class="form-check-label" for="f-run">Run the A* rover immediately</label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="create-btn">Generate scenario</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}<script src="{% static 'js/dashboard.js' %}"></script>{% endblock %}

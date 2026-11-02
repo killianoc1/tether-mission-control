@@ -1,0 +1,64 @@
+{% comment %}
+Shared layout for every page: navbar, <main> landmark, footer and the script tags.
+Each page fills {% block content %} and {% block scripts %}.  Bootstrap provides the responsive grid;
+Leaflet and common.js are loaded here so each page script can rely on them.
+{% endcomment %}
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}TETHER Mission Control{% endblock %}</title>
+  <meta name="description" content="Georeferenced disaster-response rover scenarios, trajectories and PostGIS spatial analysis.">
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body data-user="{% if user.is_authenticated %}{{ user.username }}{% endif %}">
+  <a class="visually-hidden-focusable skip-link" href="#main">Skip to main content</a>
+
+  <nav class="navbar navbar-expand-md navbar-dark app-nav" aria-label="Main">
+    <div class="container-xl">
+      <a class="navbar-brand fw-semibold" href="{% url 'dashboard' %}">
+        <span class="brand-mark" aria-hidden="true">&#9678;</span> TETHER <span class="fw-light">Mission Control</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"
+              aria-controls="nav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="nav">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item"><a class="nav-link" href="{% url 'dashboard' %}">Scenarios</a></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'guide' %}">Guide</a></li>
+          <li class="nav-item"><a class="nav-link" href="/api/docs/">API</a></li>
+        </ul>
+        <div class="d-flex align-items-center gap-2 text-white">
+          {% if user.is_authenticated %}
+            <span class="small">Signed in as <strong>{{ user.username }}</strong></span>
+            <form method="post" action="{% url 'logout' %}" class="m-0">
+              {% csrf_token %}
+              <button class="btn btn-sm btn-outline-light" type="submit">Sign out</button>
+            </form>
+          {% else %}
+            <a class="btn btn-sm btn-outline-light" href="{% url 'login' %}?next={{ request.path|urlencode }}">Sign in</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main id="main" class="container-xl py-3 py-md-4" tabindex="-1">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="container-xl py-3 small text-secondary border-top">
+    Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.
+    Grids are a visual overlay for simulated scenarios, not real hazard data.
+  </footer>
+
+  <script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+  <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+  <script src="{% static 'js/common.js' %}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
